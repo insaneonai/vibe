@@ -1,4 +1,10 @@
-import {Collection, Db, Document, MongoClient} from 'mongodb';
+import {
+  Collection,
+  Db,
+  Document,
+  MongoClient,
+  MongoClientOptions,
+} from 'mongodb';
 import {IDatabase} from 'shared/database/interfaces/IDatabase';
 import {Service} from 'typedi';
 
@@ -14,7 +20,7 @@ import {Service} from 'typedi';
  */
 @Service()
 export class MongoDatabase implements IDatabase<Db> {
-  private client: MongoClient;
+  private client: MongoClient | null;
   public database: Db | null;
 
   /**
@@ -26,17 +32,27 @@ export class MongoDatabase implements IDatabase<Db> {
     private readonly uri: string,
     private readonly dbName: string,
   ) {
-    this.client = new MongoClient(uri);
+    // Skip database connection if environment variable is set
+    if (process.env.SKIP_DB_CONNECTION === 'true') {
+      this.client = null;
+      this.database = null;
+      console.log(
+        'Database connection skipped due to SKIP_DB_CONNECTION environment variable',
+      );
+      return;
+    }
+
+    // Original initialization code
+    this.client = new MongoClient(uri); // Removed options parameter
   }
 
   /**
    * Connects to the MongoDB database.
    * @returns {Promise<Db>} The connected database instance.
-   * @throws Will throw an error if the connection fails.
    */
   private async connect(): Promise<Db> {
-    await this.client.connect();
-    this.database = this.client.db(this.dbName);
+    await this.client?.connect();
+    this.database = this.client?.db(this.dbName) || null;
     return this.database;
   }
 
@@ -47,7 +63,6 @@ export class MongoDatabase implements IDatabase<Db> {
   public async disconnect(): Promise<Db | null> {
     if (this.client) {
       await this.client.close();
-      console.log('Disconnected from MongoDB');
       this.database = null;
     }
     return this.database;
@@ -62,12 +77,13 @@ export class MongoDatabase implements IDatabase<Db> {
   }
 
   /**
-   * Retrieves a collection from the connected database.
-   * @template T
-   * @param {string} name - The name of the collection to retrieve.
-   * @returns {Collection<T>} The MongoDB collection.
-   * @throws Will throw an error if the database is not connected.
+   * Retrieves the client.
+   * @returns {Promise<MongoClient>} The connected database instance.
    */
+  public async getClient(): Promise<MongoClient> {
+    return this.client;
+  }
+
   /**
    * Retrieves a collection from the connected database.
    * @template T
