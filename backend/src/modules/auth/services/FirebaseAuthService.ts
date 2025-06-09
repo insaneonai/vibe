@@ -69,6 +69,7 @@ export class FirebaseAuthService implements IAuthService {
   ) {
     admin.initializeApp({
       credential: applicationDefault(),
+      projectId: process.env.FIREBASE_PROJECT_ID,
     });
     this.auth = admin.auth();
   }
